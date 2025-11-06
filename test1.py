@@ -1,30 +1,20 @@
-import sqlite3
+import subprocess
 
-def setup_db():
-    conn = sqlite3.connect(":memory:")
-    cur = conn.cursor()
-    cur.execute("CREATE TABLE users(id INTEGER PRIMARY KEY, username TEXT, password TEXT)")
-    cur.execute("INSERT INTO users(username, password) VALUES ('alice', 'alicepass')")
-    cur.execute("INSERT INTO users(username, password) VALUES ('bob', 'bobpass')")
-    conn.commit()
-    return conn
-
-def get_user_vulnerable(conn, username_input):
-    # <-- Vulnerable: building SQL by concatenating user input directly
-    sql = f"SELECT id, username FROM users WHERE username = '{username_input}'"
-    print("DEBUG vulnerable SQL:", sql)
-    cur = conn.cursor()
-    cur.execute(sql)   # executing concatenated SQL
-    return cur.fetchall()
+def list_files_vulnerable(user_input_path):
+    """
+    Vulnerable: builds a shell command by concatenating untrusted input
+    and runs it with shell=True.
+    """
+    # Unsafe: user_input_path can inject extra shell commands
+    cmd = "ls -la " + user_input_path
+    print("DEBUG vulnerable CMD:", cmd)
+    # shell=True executes the entire string in a shell
+    subprocess.call(cmd, shell=True)
 
 if __name__ == "__main__":
-    conn = setup_db()
+    # benign usage
+    list_files_vulnerable("/tmp")
 
-    # Normal lookup
-    print("Normal lookup:")
-    print(get_user_vulnerable(conn, "alice"))  # works as expected
-
-    # Malicious input that performs SQL injection
-    malicious = "' OR '1'='1"
-    print("\nAttack input:", malicious)
-    print(get_user_vulnerable(conn, malicious))  # returns all rows!
+    # example of malicious-looking input (harmless echo used here to demonstrate)
+    malicious = "/tmp; echo INJECTED_BY_ATTACKER"
+    list_files_vulnerable(malicious)
